@@ -31,10 +31,10 @@ token_e <- armadillo.get_token(armadillo_url_e)
 #NB: it dosent matter what table is put here...
 builder <- DSI::newDSLoginBuilder()
 builder$append(server = "dnbc",  url = "https://opal.sund.ku.dk",
-               user = "avaurup", password = "ONd1qtCSpH",
+               user = "avaurup", password = "xxxxxx",
                table = "lc_dnbc_core_2_2.1_0_non_rep", driver = "OpalDriver")
 builder$append(server = "ninfea",  url = "https://www.lifecycle.unito.it",
-               user = "p21.copenhagen", password = "941ty#47A!",
+               user = "p21.copenhagen", password = "xxxxxxx",
                table = "lc_ninfea_core_2_1.p21_non_rep", driver = "OpalDriver")
 builder$append(server = "alspac",
                url = armadillo_url_a,
@@ -42,7 +42,7 @@ builder$append(server = "alspac",
                token = token_a,
                driver ="ArmadilloDriver")
 builder$append(server = "moba",  url = "https://moba.nhn.no",
-               user = "anne_aurup", password = "123_socineqresp_123",
+               user = "anne_aurup", password = "xxxxx",
                table = "lc_moba_core_2_1.2_1_core_2021_7_non_rep_soc_ineq_resp_health", 
                driver = "OpalDriver")
 builder$append(server ="eden",
@@ -51,7 +51,7 @@ builder$append(server ="eden",
                table= "project28-eden/2_1_core_1_0/non_rep",
                driver="ArmadilloDriver")
 builder$append(server = "genr",  url = "https://opal.erasmusmc.nl",
-               user = "A.V.Aurup", password = "xK_4kf%%hNw!",
+               user = "A.V.Aurup", password = "xxxxxxxx",
                table = "lc_genr_core_2_2.2_2_core_non_rep_APM_AVA_AKGJ__ECCNLC202159", driver = "OpalDriver")
 
 
