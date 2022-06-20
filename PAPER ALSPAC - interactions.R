@@ -5,7 +5,7 @@ library(DSOpal)
 library(dsBaseClient)
 library(remotes)
 
-install_github("datashield/dsMediationClient", ref = "v0.0.3-dev", force = TRUE) #NB: newest version is now v0.0.3-dev! (Demetris at LC GA 19-05-22)
+install_github("datashield/dsMediationClient")#NB: newest version is now v0.0.3-dev! (Demetris at LC GA 19-05-22)
 library(dsMediationClient)
 
 
@@ -55,7 +55,6 @@ logindata <- builder$build()
 connections <- DSI::datashield.login(logins = logindata, restore='flowchartall')
 
 
-ds.ls()
 
 ############################################################################################
 
