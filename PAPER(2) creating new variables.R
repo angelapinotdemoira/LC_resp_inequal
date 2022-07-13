@@ -1,12 +1,9 @@
-########################################################################################
-#ASTHMA OUTCOMES --------------------------------------------------
-#------------------------------------------------------------------
-#MeDALL
-#ALSPAC - 7 years
-#DNBC - a non-repeated variable (at 7 years)
-#NINFEA - 7 years
-#MOBA - a non-reapted variable (at 7 years) + a repeated variable at 7, but include the same information
-#EDEN - 7 years
+#LifeCycle social inequalities in respiratory health study
+#Anne Aurup and Angela Pinot de Moira
+#Creating variables
+#############################################################
+
+#Load libraries
 
 library(DSMolgenisArmadillo)
 library(DSI)
@@ -20,53 +17,13 @@ library(remotes)
 install_github("datashield/dsMediationClient", ref = "v0.0.2-dev")
 library(dsMediationClient)
 
-
-#specify server url
-armadillo_url_a <- "https://alspac-armadillo.molgenis.org"
-# get ALSPAC token from central authentication server
-token_a <- armadillo.get_token(armadillo_url_a)
-
-# get EDEN token
-armadillo_url_e <- "https://armadillo.sicopre.elfe-france.fr"
-token_e <- armadillo.get_token(armadillo_url_e)
-#you can use the same token for the 2 cohorts as they are on the same
-
-
-
-#NB: it dosent matter what table is put here...
-builder <- DSI::newDSLoginBuilder()
-builder$append(server = "dnbc",  url = "https://opal.sund.ku.dk",
-               user = "avaurup", password = "XXXX",
-               table = "lc_dnbc_core_2_2.1_0_non_rep", driver = "OpalDriver")
-builder$append(server = "ninfea",  url = "https://www.lifecycle.unito.it",
-               user = "p21.copenhagen", password = "XXXXX",
-               table = "lc_ninfea_core_2_1.p21_non_rep", driver = "OpalDriver")
-builder$append(server = "alspac",
-               url = armadillo_url_a,
-               table = "lc20/2_1_core_1_3/non_rep",
-               token = token_a,
-               driver ="ArmadilloDriver")
-builder$append(server = "moba",  url = "https://moba.nhn.no",
-               user = "anne_aurup", password = "XXXX",
-               table = "lc_moba_core_2_1.2_1_core_2021_7_non_rep_soc_ineq_resp_health", 
-               driver = "OpalDriver")
-builder$append(server ="eden",
-               url = armadillo_url_e,
-               token = token_e,
-               table= "project28-eden/2_1_core_1_0/non_rep",
-               driver="ArmadilloDriver")
-builder$append(server = "genr",  url = "https://opal.erasmusmc.nl",
-               user = "A.V.Aurup", password = "XXXXX",
-               table = "lc_genr_core_2_2.2_2_core_non_rep_APM_AVA_AKGJ__ECCNLC202159", driver = "OpalDriver")
-
-
-
-
-logindata <- builder$build()
-
-connections <- DSI::datashield.login(logins = logindata, restore='endofassigningdata') 
-
-
+###############OUTCOME------------------------
+#MeDALL
+#ALSPAC - 7 years
+#DNBC - a non-repeated variable (at 7 years)
+#NINFEA - 7 years
+#MOBA - a non-reapted variable (at 7 years) + a repeated variable at 7, but include the same information
+#EDEN - 7 years
 
 ##########For the yearly-repeated variables, we need to restrict observations to one measurement per child
 #This is a bit tricky and requires a couple of steps :
@@ -119,13 +76,18 @@ ds.table('medall', datasources = connections[c(2,3,5)], useNA = "no") # check
 #of the children with asthma information at 7 years 7,3% have asthma in eden cohort - in raw study population
 
 
-
 #Create the medall object in DNBC & MOBA & GENR (which have non-rep measures):
 ds.assign(toAssign='D$asthma_current_MeDALL', newobj='medall', datasources = connections[c(1,4,6)])
 
 
 #adding on medall column in D dataframe in all 5 cohorts
 ds.cbind(x=c('D', 'medall'), newobj = 'D', datasources = connections[c(1,2,3,4,5,6)])
+
+#create a numeric variable for poisson regression:
+ds.asInteger('D$medall', 'poisson_medall', datasources = connections)
+ds.cbind(x=c('D', 'poisson_medall'), newobj = 'D', datasources = connections)
+ds.table(rvar="D$medall",cvar="D$poisson_medall", datasources = connections)
+
 
 
 #CHECK:
@@ -136,27 +98,23 @@ ds.table('D$medall', datasources = connections[c(1,2,3,4,5,6)], useNA= "no")
 #6.5 in GenR
 
 
-datashield.workspace_save(connections, 'asthma')
+datashield.workspace_save(connections, 'SES2')
 
 
 
-#####################################################################################################
-#EXPOSURE
-ds.table('D$edu_m_.0', datasources=connections)
-ds.table('D$edu_m_.0', datasources=connections, useNA = "no")
-ds.class("D$edu_m_.0", datasources = connections)
-#=factor variable!
+#########################EXPOSURE --------------------------------------------
+#Create a binary exposure variable (combine low and high education level)
 
-###two way table#####
-ds.table(rvar="D$edu_m_.0",cvar="D$medall", report.chisq.tests= TRUE, useNA = "no", datasources=connections)
-#Message from study 5: [6] "Study5: Failed: at least one cell has a non-zero count less than nfilter.tab i.e. 3"
-##... --> talk to Angela about this!
-#this will probably be solved when we combine the exposure to a binary variable
+ds.recodeLevels(x = "D$edu_m_.0", newCategories = c("1", "2", "2"), newobj = "bin_edu_m",
+                datasources = connections)
+ds.table("bin_edu_m", datasources = connections)
+
+ds.cbind(x=c('D', 'bin_edu_m'), newobj = 'D', datasources = connections)
 
 #####################################################################################################
 #COVARIATES & MEDIATORS
 
-##############################BREASTFEEDING
+##############################BREASTFEEDING-------------------------------------
 
 #Breastfed_any - categorize the variable
 #Anne: Breastfeeding is assessed as duration!
@@ -174,8 +132,7 @@ ds.cbind(x=c('D', 'breastfedcat'), newobj = 'D', datasources = connections)
 ds.table('D$breastfedcat', datasources=connections)
 
 
-################################################
-#mode of delivery - csection
+########################## Mode of delivery - csection -------------------------
 
 #NB not possible to code 0/1 so coded 1 2
 ds.recodeValues(var.name = "D$mode_delivery", values2replace.vector = c(1,2,3,4,5),
@@ -184,21 +141,8 @@ ds.recodeValues(var.name = "D$mode_delivery", values2replace.vector = c(1,2,3,4,
 ds.cbind(x=c('D', 'csection'), newobj = 'D', datasources = connections)
 ds.table('D$csection', datasources=connections, useNA = "no")
 
-#################################################################
 
-################## MATERNAL SMOKING DURING PREGNANCY
-ds.table('D$preg_smk', datasources=connections)
-
-ds.assign(toAssign='D$preg_smk', newobj='smokingduringpreg', datasources = connections)
-ds.cbind(x=c('D', 'smokingduringpreg'), newobj = 'D', datasources = connections)
-ds.table('D$smokingduringpreg', datasources=connections)
-ds.table('D$smokingduringpreg', datasources=connections, useNA = "no")
-
-ds.class("D$smokingduringpreg", datasources = connections)
-#factor variable
-
-
-##################EXPPOSURE TO PASSIVE SMOKING
+##################EXPPOSURE TO PASSIVE SMOKING ---------------------------------
 
 #checking pattern:
 ds.table(rvar="D$smk_exp.0",cvar="D$smk_exp.1", useNA="no")
@@ -206,47 +150,40 @@ ds.table(rvar="D$smk_exp.0",cvar="D$smk_exp.1", useNA="no")
 ############1METHOD
 #to integer:
 ds.asInteger('D$smk_exp.0', 'int_smk_exp.0', datasources = connections)
-ds.cbind(x=c('D', 'int_smk_exp.0'), newobj = 'D', datasources = connections)
 ds.asInteger('D$smk_exp.1', 'int_smk_exp.1', datasources = connections)
-ds.cbind(x=c('D', 'int_smk_exp.1'), newobj = 'D', datasources = connections)
-
 
 #Creating new dataframe to calculate row means of
-ds.dataFrame(x=c('D$int_smk_exp.0','D$int_smk_exp.1'), newobj='smk_expp', datasources = connections)
-
+ds.dataFrame(x=c('int_smk_exp.0','int_smk_exp.1'), newobj='smk_expp', datasources = connections)
 
 #Calculate the average across the dataframe:
 ds.rowColCalc(x='smk_expp', operation='rowMeans', newobj='smk_exppmean', datasources=connections)
 
 #boole
 ds.Boole(V1 = 'smk_exppmean', V2 = "0", Boolean.operator = ">",
-         numeric.output = TRUE, na.assign = "NA", newobj= 'smk_exppmean', datasources = connections)
+         numeric.output = TRUE, na.assign = "NA", newobj= 'passivesmoke2y', datasources = connections)
 
 ####CONVERT TO FACTOR VARIABLE:
 
-ds.asFactor('smk_exppmean', 'passivesmoke2y', forced.factor.levels=0:1, datasources = connections)
-ds.table('passivesmoke2y', datasources = connections, useNA="no")
+ds.asFactor('passivesmoke2y', 'passivesmoke2y', forced.factor.levels=0:1, datasources = connections)
 ds.cbind(x=c('D', 'passivesmoke2y'), newobj = 'D', datasources = connections[c(1,2,3,4,5,6)])
-ds.table('D$passivesmoke2y', datasources=connections)
-
-###REMEMBER:
-#From Angela e-mail 03-11-2021: Try this, but you might find that you end up getting NaN for the 
-#missing variables if all the children have only one observation. If that’s the case, I would instead 
-#combine the data in the same way you did to create your current asthma outcome (which is slightly more
-#long winded!). Note, that using the first approach, if one or more cohorts have several FUs, their 
-#smoking prevalence will be exaggerated because if a child is coded 1 NA, or 1 0, they will be coded 1 
-#(if that makes sense)...
+ds.table('D$passivesmoke2y', 'D$smk_exp.0', datasources=connections)
+ds.table('D$passivesmoke2y', 'D$smk_exp.1', datasources=connections)
 
 ###SAVING
-datashield.workspace_save(connections, 'asthmainclmediators')
+datashield.workspace_save(connections, 'SES2')
 
 
 
-#############GESTATIONAL AGE
+#############GESTATIONAL AGE ---------------------------------------------------
+ds.assign(toAssign="D$ga_lmp", newobj='ga',datasources = connections['moba']) #MoBa don't have "ga_bj"
+ds.assign(toAssign="D$ga_bj", newobj='ga',datasources = connections[c(1,2,3,5,6)])
+
 #log GA
 #Anne: changed from ga to ga_bj --> NB: MOBA DOES NOT HAVE GA_BJ, ask Angela which ga measure is best to use
 ds.log(x = "D$ga_bj", newobj = "log_ga_bj", datasources = connections)
-ds.cbind(x=c('D', 'log_ga_bj' ), newobj = 'D', datasources = connections)
+ds.log(x = "D$ga_lmp", newobj = "log_ga_bj", datasources = connections['moba'])
+
+ds.cbind(x=c('D', 'log_ga_bj', 'ga' ), newobj = 'D', datasources = connections)
 
 ds.mean('D$ga_bj', datasources=connections[c(1,2,3,4,5,6)])
 ds.mean('D$log_ga_bj', datasources=connections[c(1,2,3,4,5,6)])
@@ -272,11 +209,78 @@ ds.histogram("D$birth_weight", datasources = connections[2]) #ninfea
 ds.histogram("D$birth_weight", datasources = connections[3]) #alspac
 ds.histogram("D$birth_weight", datasources = connections[5]) #eden
 
+########### Making the ADVERSE REPRODUCTIVE OUTCOMES - common variable ---------
 
-####################################COVARIATES##########################################
-#####sex of child
+# From Maja:
+#Adverse reproductive outcomes would include:
+#- preterm birth (<37 weeks of gestation) here it is better to use GAbj variable as it the most complete one
+#- low birth weight (<2500 grams)
+#- cesarean.
+#So you would have 1 if either of the three is 1 and 0 if all are zero. This also means that you 
+#would need to exclude all those with missing data in at least one of the three variables.
 
-ds.table('D$sex', datasources=connections, useNA = "no")
+######## 1) Making the preterm variable - <37 weeks of gestation 
+
+#converting 37 weeks to days: 37*7 = 259 days:
+
+ds.Boole(V1 ='D$ga', V2='259', Boolean.operator='<',
+         numeric.output=T, na.assign='NA', newobj='preterm', datasources = connections[c(1,2,3,4,5,6)])
+
+# check the mean GA in the two categories of preterm:
+ds.meanSdGp(
+  x = 'D$ga',
+  y = 'preterm',
+  type = "both",
+  do.checks = FALSE,
+  datasources = connections)
+
+
+######## 2) Making low birth weight variable - <2500 grams 
+
+ds.Boole(V1 ='D$birth_weight', V2='2500', Boolean.operator='<',
+         numeric.output=T, na.assign='NA', newobj='lowbw', datasources = connections[c(1,2,3,4,5,6)])
+
+# check the mean bw in the two categories of lowbw:
+ds.meanSdGp(
+  x = 'D$birth_weight',
+  y = 'lowbw',
+  type = "both",
+  do.checks = FALSE,
+  datasources = connections)
+#looks fine
+
+
+######## 3) Born by cesearan yes or no 
+
+
+ds.asNumeric('D$mode_delivery', 'csection_new', datasources = connections[c(1,2,3,4,5,6)])
+
+ds.Boole(V1 ='csection_new', V2='3', Boolean.operator='>=',
+         numeric.output=T, na.assign='NA', newobj='csection_new', datasources = connections[c(1,2,3,4,5,6)])
+
+
+######### FINAL STEP: Making of the combined adverse reproductive variable
+
+
+ds.make(toAssign = "preterm + lowbw + csection_new", newobj = "adverse_rep_outcomes",
+        datasources = connections[c(1,2,3,4,5,6)])
+
+
+ds.Boole(V1 ='adverse_rep_outcomes', V2='1', Boolean.operator='>=',
+         numeric.output=T, na.assign='NA', newobj='adverse_rep_outcomes', datasources = connections[c(1,2,3,4,5,6)])
+
+
+#Now check the variable makes sense:
+for (i in c('preterm', 'lowbw', 'D$csection')) {
+  x = ds.table('adverse_rep_outcomes', i, datasources = connections[c(1,2,3,4,5,6)])
+  print(x)
+}
+
+ds.cbind(x=c('D', 'adverse_rep_outcomes'), newobj = 'D', datasources = connections[c(1,2,3,4,5,6)])
+
+
+
+####################################COVARIATES----------------------------------
 
 ##### ethnicity...
 #check the ethnicity status in moba and eden....! how is the ethnic composition of these study populations..?
@@ -284,19 +288,17 @@ ds.table('D$ethn1_m', datasources=connections) # only eden has data
 ds.table('D$ethn3_m', datasources=connections) #alspac and eden
 ds.table('D$cob_m', datasources=connections) #ninfea and eden
 
-
-##### Parental history of asthma/allergy/atopy
-ds.table('D$allergy_any_m', datasources=connections) #Maternal history of any allergy before pregnancy (of index child)
-ds.table('D$allergy_inh_m', datasources=connections) #Maternal history of inhalant allergy before pregnancy (of index child)
-ds.table('D$eczema_m', datasources=connections) #Maternal history of eczema before pregnancy (of index child)
-ds.table('D$asthma_m', datasources=connections) #Maternal history of asthma before pregnancy
-ds.table('D$asthma_bf', datasources=connections) #Paternal history of asthma (biological father)
-
-##### Maternal age at birth
-ds.mean('D$agebirth_m_y', datasources=connections[c(1,2,3,4,5,6)])
+#### parity...
+#note:EDEN missing a lot of observations for sibling position
+#INMA and NINFEA have small cells, so need to recode using ds.recodeValues initially, otherwise recode fails:
+ds.recodeValues(var.name = "D$parity", values2replace.vector = c(0,1,2,3,4),
+                new.values.vector = c(1,2,3,3,3), force.output.format = "no",
+                newobj = "parity2", datasources = connections, notify.of.progress = FALSE)
+ds.table("D$parity","parity2")
+ds.cbind(x=c('D', 'parity2' ), newobj = 'D', datasources = connections)
 
 
-datashield.workspace_save(connections, 'asthmainclmediators_covar')
+datashield.workspace_save(connections, 'SES2')
 
 
 ds.dataFrameFill(df.name="D", newobj="D", datasources = connections)
@@ -304,7 +306,7 @@ ds.dataFrameFill(df.name="D", newobj="D", datasources = connections)
 
 ################# SAVING WORKSPACE #######################################
 
-datashield.workspace_save(connections, 'finalworkspace')
+datashield.workspace_save(connections, 'SES2')
 
 ##########################################################################
 
